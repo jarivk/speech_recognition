@@ -138,6 +138,12 @@ According to the `official installation instructions <https://developers.google.
 
 Alternatively, you can perform the installation completely offline from the source archives under the ``./third-party/Source code for Google API Client Library for Python and its dependencies/`` directory.
 
+Steps for setting up Google clound speech API credentials:
+1. Install gcloud SDK from https://cloud.google.com/sdk/docs/quickstart-linux and setup using your google account
+2. Setup application default credentials by referring to https://developers.google.com/identity/protocols/application-default-credentials. This essentially means running "gcloud beta auth application-default login" command and login using google account.
+3. Update GOOGLE_CLOUD_SPEECH_CREDENTIALS in audio_transcribe.py file with contents of your GOOGLE CLOUD SPEECH JSON CREDENTIALS FILE
+
+
 FLAC (for some systems)
 ~~~~~~~~~~~~~~~~~~~~~~~
 
