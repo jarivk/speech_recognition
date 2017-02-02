@@ -17,6 +17,7 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
     print_error = True
     transcript = ''
     confidence = '0.0'
+    wer_result = '0.0'
     # use the audio file as the audio source
     r = sr.Recognizer()
     with sr.AudioFile(speech_file) as source:
@@ -119,20 +120,21 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
     h = transcript.translate(None, string.punctuation)
     if verbose:
         print('\n' + api + '(h) : ' + str(h.split()))
-    if len(ref) > 0:
+    if ref != None and len(ref) > 0:
         if os.path.isfile(ref):
             with open(ref, 'r') as f:
                 r = f.readline().rstrip('\n')
                 r = r.translate(None, string.punctuation)
                 c = wer(r.split(), h.split())
+                wer_result = float(c)/len(r.split())
                 if verbose:
                     print 'Reference(r) : ' + str(r.split())
                     print "len(h): ", len(h), " ", "len(r): ", len(r), " ", "Missed/Incorrect words: ", c, " ", "Total words: ", len(r.split())
-                    print "RESULT: ", speech_file, ', ', '{0:.2f}'.format(float(c)/len(r.split())), ', ' + confidence
-    else:
-        print(args.input + " : " + h + " : " + confidence)
+                    print "RESULT: ", speech_file, ', ', '{0:.2f}'.format(wer_result), ', ' + confidence
+    #else:
+        #print(speech_file + " : " + h + " : " + confidence)
 
-    return transcript, '{0:.2f}'.format(float(c)/len(r.split())), confidence,
+    return transcript, wer_result, confidence,
 
 
 def wer(r, h):
@@ -234,7 +236,10 @@ if __name__ == '__main__':
             for api in args.api:
                 h, wer_result, confidence = recognize(args.input, api, save_output=args.save, suffix=args.suffix, ref=args.ref, verbose=args.verbose)
                 if args.verbose == False:
-                    sys.stdout.write(', ' + wer_result + ', ' + confidence + '\n')
+                    if args.ref != None:
+                        sys.stdout.write(', ' + str(wer_result) + ', ' + confidence + '\n')
+                    else:
+                        sys.stdout.write(' : ' + h + ', ' + confidence + '\n')
 
         elif args.input.lower().endswith('.txt'):
             if args.ref != None:
@@ -256,15 +261,18 @@ if __name__ == '__main__':
                     for api in args.api:
                         h, wer_result, confidence = recognize(fname, api, save_output=args.save, suffix=args.suffix, ref=ref_file, verbose=args.verbose)
                         if args.verbose == False:
-                            sys.stdout.write(', ' + wer_result + ', ' + confidence)
+                            sys.stdout.write(', ' + str(wer_result) + ', ' + confidence)
                             sys.stdout.flush()
                     sys.stdout.write('\n')
                     sys.stdout.flush()
 
     elif os.path.isdir(args.input):
-        for f in sorted(glob.glob(args.input + '*.wav')):
-            print(f)
+        for f in sorted(glob.glob(args.input + 'clean*.wav')):
+            sys.stdout.write(f)
+            sys.stdout.flush()
             for api in args.api:
-                h = recognize(f, api, save_output=args.save, suffix=args.suffix)
+                h, wer_result, confidence = recognize(f, api, save_output=args.save, suffix=args.suffix, ref=None, verbose=args.verbose)
+                if args.verbose == False:
+                    sys.stdout.write(' : ' + h + ', ' + confidence + '\n')
 
     # [END run_application]

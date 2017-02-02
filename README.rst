@@ -63,6 +63,36 @@ See the ``examples/`` `directory <https://github.com/Uberi/speech_recognition/tr
 -  `Listening to a microphone in the background <https://github.com/Uberi/speech_recognition/blob/master/examples/background_listening.py>`__
 -  `Various other useful recognizer features <https://github.com/Uberi/speech_recognition/blob/master/examples/special_recognizer_features.py>`__
 
+
+Examples (virajkarandikar)
+----------
+-  Do transcription (default API is GOOGLE CLOUD)
+
+        python examples/audio_transcribe.py  ../testing_v2/new_db/clean_0.wav
+
+-  Do transcription with specific API
+
+        python examples/audio_transcribe.py  ../testing_v2/new_db/clean_0.wav -api WIT
+
+-  Do transcription with all APIs
+
+        python examples/audio_transcribe.py  ../testing_v2/new_db/clean_0.wav -api ALL
+
+-  Do transcription of all files in a directory
+
+        python examples/audio_transcribe.py  ../testing_v2/new_db/
+
+- Do transcription and calculate word error rate (WER)
+
+        python examples/audio_transcribe.py  ../testing_v2/new_db/clean_0.wav -ref ../testing_v2/new_db/0.txt
+
+- Do transcription and calculate word error rate (WER) in batch mode
+
+        python examples/audio_transcribe.py  ~/work/DL/testing_v2/input_clean.txt -ref  ~/work/DL/testing_v2/transcripts.txt
+
+- All commands can be run in verbose mode by adding "-v" option
+
+
 Installing
 ----------
 
@@ -138,7 +168,7 @@ According to the `official installation instructions <https://developers.google.
 
 Alternatively, you can perform the installation completely offline from the source archives under the ``./third-party/Source code for Google API Client Library for Python and its dependencies/`` directory.
 
-Steps for setting up Google clound speech API credentials:
+Steps for setting up Google clound speech API credentials (virajkarandikar):
 
 * Install gcloud SDK from https://cloud.google.com/sdk/docs/quickstart-linux and setup using your google account
 * Setup application default credentials by referring to https://developers.google.com/identity/protocols/application-default-credentials. This essentially means running "gcloud beta auth application-default login" command and login using google account.
