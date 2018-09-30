@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
 
+import inflect
 import os.path
 import glob
 import argparse
@@ -12,12 +12,12 @@ def signal_handler(signal, frame):
         print('You pressed Ctrl+C!')
         sys.exit(0)
 
-def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', verbose=False):
+def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', fname_as_ref=False, verbose=False):
 
     print_error = True
     transcript = ''
     confidence = '0.0'
-    wer_result = '0.0'
+    p = inflect.engine()
     # use the audio file as the audio source
     r = sr.Recognizer()
     with sr.AudioFile(speech_file) as source:
@@ -27,6 +27,7 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
         # recognize speech using Sphinx
         try:
             h = r.recognize_sphinx(audio)
+            #print(api + " : " + h)
         except sr.UnknownValueError:
             if print_error:
                 print("Sphinx could not understand audio")
@@ -41,7 +42,7 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
             # instead of `r.recognize_google(audio)`
             h = r.recognize_google_cloud(audio, language = "en-US", show_all=True)
             if "results" in h and len(h["results"]) > 0:
-                transcript = str(h["results"][0]["alternatives"][0]["transcript"])
+                transcript = (h["results"][0]["alternatives"][0]["transcript"]).encode('utf-8')
                 confidence = str(h["results"][0]["alternatives"][0]["confidence"])
         except sr.UnknownValueError:
             if print_error:
@@ -78,13 +79,14 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
 
     elif api == 'HOUNDIFY':
         # recognize speech using Houndify
-        HOUNDIFY_CLIENT_ID = "jB6hEAMViS94KjGrrK2MPA==" # Houndify client IDs are Base64-encoded strings
-        HOUNDIFY_CLIENT_KEY = "FuuByAvmq4K5GBZk84Mj0VqwxtW5PyGFm3Fq_HacYKt4y69orKyKf3Fcz_Ju4upJpJ0JPhPL1Q9coEeUMvyC-w==" # Houndify client keys are Base64-encoded strings
+        HOUNDIFY_CLIENT_ID = "" # Houndify client IDs are Base64-encoded strings
+        HOUNDIFY_CLIENT_KEY = "" # Houndify client keys are Base64-encoded strings
         try:
             h = r.recognize_houndify(audio, client_id=HOUNDIFY_CLIENT_ID, client_key=HOUNDIFY_CLIENT_KEY, show_all=True)
             if "Disambiguation" in h and h["Disambiguation"] is not None:
                 transcript = str(h['Disambiguation']['ChoiceData'][0]['Transcription'])
                 confidence = str(h['Disambiguation']['ChoiceData'][0]['ConfidenceScore'])
+
         except sr.UnknownValueError:
             if print_error:
                 print("Houndify could not understand audio")
@@ -117,24 +119,46 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', v
                 f.write(s + '\n')
             f.close()
 
+
     h = transcript.translate(None, string.punctuation)
+    words = h.lower().split()
+    h = ""
+    for i in range(len(words)):
+        if words[i].isdigit():
+            if verbose:
+                print("\nconverting " + words[i] + " to " + p.number_to_words(words[i]))
+            words[i] = p.number_to_words(words[i])
+        h +=  words[i]
+        if i != len(words) - 1:
+            h += " "
+
     if verbose:
         print('\n' + api + '(h) : ' + str(h.split()))
-    if ref != None and len(ref) > 0:
+
+    if fname_as_ref:
+        print ("\nFile: " + os.path.splitext(os.path.basename(speech_file))[0])
+        print ("Google ASR: " + h)
+        if os.path.splitext(os.path.basename(speech_file))[0].replace("_","") == h.replace(" ",""):
+            print ("#### PASSED ####")
+        else:
+            print ("#### FAILED ####")
+
+    # WER calculation
+    if len(ref) > 0:
         if os.path.isfile(ref):
             with open(ref, 'r') as f:
                 r = f.readline().rstrip('\n')
                 r = r.translate(None, string.punctuation)
                 c = wer(r.split(), h.split())
-                wer_result = float(c)/len(r.split())
                 if verbose:
-                    print 'Reference(r) : ' + str(r.split())
-                    print "len(h): ", len(h), " ", "len(r): ", len(r), " ", "Missed/Incorrect words: ", c, " ", "Total words: ", len(r.split())
-                    print "RESULT: ", speech_file, ', ', '{0:.2f}'.format(wer_result), ', ' + confidence
-    #else:
-        #print(speech_file + " : " + h + " : " + confidence)
-
-    return transcript, wer_result, confidence,
+                    print 'Reference(r) : ' + str(r.lower().split())
+                    print "Total words: ", len(r.split()), " Missed/Incorrect words: ", c
+                    #print "RESULT: ", speech_file, ', ', '{0:.2f}'.format(float(c)/len(r.split())), ', ' + confidence
+                return transcript, (float(c)/len(r.split())), confidence
+    else:
+        if verbose:
+            print(args.input + " : " + h + " : " + confidence)
+        return transcript, '0', confidence
 
 
 def wer(r, h):
@@ -191,7 +215,7 @@ def wer(r, h):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'input', help='Full path of WAV file to be recognized OR directory containing wav files OR text file containing absolute paths of audio files to be recognized')
+        '-input', help='Full path of WAV file to be recognized OR directory containing wav files OR text file containing absolute paths of audio files to be recognized')
     parser.add_argument(
         '-api', help='API used for recognition', choices=['SPHINX', 'GOOGLE', 'WIT', 'MICROSOFT', 'HOUNDIFY', 'IBM', 'ALL'])
     parser.add_argument(
@@ -202,6 +226,8 @@ if __name__ == '__main__':
         '-suffix', help='Suffix to add to name of transcribed text file (e.g. _google). Applicable only when saving trasnscription to file')
     parser.add_argument(
         '-v', '--verbose', help='Enable verbose logging', action="store_true")
+    parser.add_argument(
+        '-fnameref', '--fname_as_ref', help='Use filename as reference', action="store_true")
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -228,18 +254,18 @@ if __name__ == '__main__':
     if args.suffix == None:
         args.suffix = args.api.tolower()
 
+    if args.ref == None:
+        args.ref = ""
+
     if os.path.isfile(args.input):
         if args.input.lower().endswith('.wav'):
             print 'File,', ','.join(map(str, args.api))
             sys.stdout.write(args.input)
             sys.stdout.flush()
             for api in args.api:
-                h, wer_result, confidence = recognize(args.input, api, save_output=args.save, suffix=args.suffix, ref=args.ref, verbose=args.verbose)
+                h, wer_result, confidence = recognize(args.input, api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
                 if args.verbose == False:
-                    if args.ref != None:
-                        sys.stdout.write(', ' + str(wer_result) + ', ' + confidence + '\n')
-                    else:
-                        sys.stdout.write(' : ' + h + ', ' + confidence + '\n')
+                    sys.stdout.write(', ' + wer_result + ', ' + confidence + '\n')
 
         elif args.input.lower().endswith('.txt'):
             if args.ref != None:
@@ -249,6 +275,8 @@ if __name__ == '__main__':
                     print sys.stderr, "Failed to open : %s" % e
                     sys.exit(1)
 
+            total_wer = 0.0
+            file_count = 0
             print 'File,', ','.join(map(str, args.api))
             with open(args.input, 'r') as flist:
                 for fname in flist:
@@ -259,20 +287,22 @@ if __name__ == '__main__':
                     sys.stdout.write("File: " + fname)
                     sys.stdout.flush()
                     for api in args.api:
-                        h, wer_result, confidence = recognize(fname, api, save_output=args.save, suffix=args.suffix, ref=ref_file, verbose=args.verbose)
-                        if args.verbose == False:
-                            sys.stdout.write(', ' + str(wer_result) + ', ' + confidence)
-                            sys.stdout.flush()
+                        h, wer_result, confidence = recognize(fname, api, save_output=args.save, suffix=args.suffix, ref=ref_file, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
+                        #sys.stdout.write(', ' + wer_result + ', ' + confidence)
+                    file_count += 1
+                    total_wer += wer_result
+                    print fname, 'WER: ', '{0:.3f}'.format(wer_result), 'AVG WER: ', '{0:.3f}'.format(total_wer/file_count)
                     sys.stdout.write('\n')
                     sys.stdout.flush()
 
     elif os.path.isdir(args.input):
-        for f in sorted(glob.glob(args.input + 'clean*.wav')):
-            sys.stdout.write(f)
-            sys.stdout.flush()
-            for api in args.api:
-                h, wer_result, confidence = recognize(f, api, save_output=args.save, suffix=args.suffix, ref=None, verbose=args.verbose)
-                if args.verbose == False:
-                    sys.stdout.write(' : ' + h + ', ' + confidence + '\n')
+        for root, subdirs, files in os.walk(args.input):
+            for filename in files:
+                if filename.endswith(".wav"):
+                    print(os.path.join(root, filename))
+                    for api in args.api:
+                        h, wer_result, confidence = recognize(os.path.join(root, filename), api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
+                        if args.verbose == False:
+                            sys.stdout.write(filename + ' : ' + h + ' : ' + wer_result + ' : ' + confidence + '\n')
 
     # [END run_application]
