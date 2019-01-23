@@ -152,13 +152,13 @@ def recognize(speech_file, api='GOOGLE', save_output=False, suffix='', ref='', f
                 c = wer(r.split(), h.split())
                 if verbose:
                     print 'Reference(r) : ' + str(r.lower().split())
-                    print "Total words: ", len(r.split()), " Missed/Incorrect words: ", c
+                    print "errors/words: ", c, "/", len(r.split())
                     #print "RESULT: ", speech_file, ', ', '{0:.2f}'.format(float(c)/len(r.split())), ', ' + confidence
-                return transcript, (float(c)/len(r.split())), confidence
+                return h.lower(), c, len(r.split()), confidence
     else:
         if verbose:
             print(args.input + " : " + h + " : " + confidence)
-        return transcript, '0', confidence
+        return h.lower(), 0, 0, confidence
 
 
 def wer(r, h):
@@ -263,9 +263,9 @@ if __name__ == '__main__':
             sys.stdout.write(args.input)
             sys.stdout.flush()
             for api in args.api:
-                h, wer_result, confidence = recognize(args.input, api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
-                if args.verbose == False:
-                    sys.stdout.write(', ' + wer_result + ', ' + confidence + '\n')
+                h, errors, num_words, confidence = recognize(args.input, api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
+                #if args.verbose == False:
+                #    sys.stdout.write(', ' + errors/num_words + ', ' + confidence + '\n')
 
         elif args.input.lower().endswith('.txt'):
             if args.ref != None:
@@ -275,7 +275,8 @@ if __name__ == '__main__':
                     print sys.stderr, "Failed to open : %s" % e
                     sys.exit(1)
 
-            total_wer = 0.0
+            total_words = 0
+            total_errors = 0
             file_count = 0
             print 'File,', ','.join(map(str, args.api))
             with open(args.input, 'r') as flist:
@@ -287,11 +288,12 @@ if __name__ == '__main__':
                     sys.stdout.write("File: " + fname)
                     sys.stdout.flush()
                     for api in args.api:
-                        h, wer_result, confidence = recognize(fname, api, save_output=args.save, suffix=args.suffix, ref=ref_file, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
+                        h, errors, num_words, confidence = recognize(fname, api, save_output=args.save, suffix=args.suffix, ref=ref_file, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
                         #sys.stdout.write(', ' + wer_result + ', ' + confidence)
                     file_count += 1
-                    total_wer += wer_result
-                    print fname, 'WER: ', '{0:.3f}'.format(wer_result), 'AVG WER: ', '{0:.3f}'.format(total_wer/file_count)
+                    total_errors += errors
+                    total_words += num_words
+                    print fname, 'WER: ', '{0:.3f}'.format(float(errors)/num_words), 'AVG WER: ', '{0:.3f}'.format(float(total_errors)/total_words), "(", total_errors, "/", total_words, ")"
                     sys.stdout.write('\n')
                     sys.stdout.flush()
 
@@ -301,8 +303,8 @@ if __name__ == '__main__':
                 if filename.endswith(".wav"):
                     print(os.path.join(root, filename))
                     for api in args.api:
-                        h, wer_result, confidence = recognize(os.path.join(root, filename), api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
+                        h, errors, num_words, confidence = recognize(os.path.join(root, filename), api, save_output=args.save, suffix=args.suffix, ref=args.ref, fname_as_ref=args.fname_as_ref, verbose=args.verbose)
                         if args.verbose == False:
-                            sys.stdout.write(filename + ' : ' + h + ' : ' + wer_result + ' : ' + confidence + '\n')
+                            sys.stdout.write(filename + ' : ' + h + ' : ' + errors/num_words + ' : ' + confidence + '\n')
 
     # [END run_application]
